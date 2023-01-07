@@ -1,0 +1,104 @@
+name: 'RelizaHub PullRequest Workflow'
+description: 'Submit PullRequest metadata on RelizaHub'
+branding:
+  icon: 'info'
+  color: 'green'
+inputs:
+  reliza_api_id:
+    description: "Reliza Hub API ID"
+    required: true
+  reliza_api_key:
+    description: "Reliza Hub API KEY"
+    required: true
+  reliza_api_url:
+    description: "Reliza Hub API URL"
+    required: false
+    default: 'https://app.relizahub.com'
+  path:
+    description: "Path to the relative to root of the repo (default is '.')"
+    required: false
+    default: .
+  reliza_project_id:
+    description: "Project UUID for this release if org-wide key is used"
+    required: false
+runs:
+  using: "composite"
+  steps:
+    - id: setup-reliza-cli
+      name: setup-reliza-cli
+      uses: relizaio/setup-reliza-cli@1.0
+      with: 
+        version: 2023.01.3
+    - id: reliza-build-start 
+      name: Record build start 
+      run: echo "reliza_build_start=$(date -Iseconds)" >> $GITHUB_OUTPUT
+      shell: bash
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    - name: Extract Last Release Commit And Prepare List Of Commits
+      id: extract-commits
+      shell: bash
+      run: |
+        cd ${{ inputs.path }}
+        dobuild=false
+        echo -n "-i ${{ inputs.reliza_api_id }} -k ${{ inputs.reliza_api_key }} -u ${{ inputs.reliza_api_url }} -b ${{ github.head_ref }} --status pending"  > get_latest_release_cmd
+        if [ ! -z ${{inputs.reliza_project_id}} ]
+        then
+          echo " --project ${{inputs.reliza_project_id}} " >> get_latest_release_cmd
+        fi
+        echo -n "reliza-cli getlatestrelease $(cat get_latest_release_cmd) " >> get_latest_release_exec
+        latest_release=$(eval "$(cat get_latest_release_exec)")
+        last_commit=$(echo $latest_release | jq -r ".sourceCodeEntryDetails.commit")
+        
+        PR_HEAD_COMMIT=${{ github.event.pull_request.head.sha }}
+        retries=0
+        until [ $PR_HEAD_COMMIT = $last_commit ]
+        do
+          if [[ $retries -eq 5 ]]
+          then
+            break
+          fi
+          sleep 10
+          latest_release=$(eval "$(cat get_latest_release_exec)")
+          last_commit=$(echo $latest_release | jq -r ".sourceCodeEntryDetails.commit")
+          retries=$((retries + 1))
+        done
+
+        if [ ${PR_HEAD_COMMIT} = ${last_commit} ]
+        then
+          dobuild=true
+        fi
+       
+        echo "DO_BUILD=$dobuild" >> $GITHUB_ENV
+        echo "LAST_COMMIT=$last_commit" >> $GITHUB_ENV
+        echo "reliza_do_build=$dobuild" >> $GITHUB_OUTPUT
+        echo "reliza_last_commit=$last_commit" >> $GITHUB_OUTPUT
+    - id: submit-pr-data
+      if: ${{env.DO_BUILD == 'true'}}
+      name: Submit PR Data
+      shell: bash
+      run: |
+        echo -n "-i ${{ inputs.reliza_api_id }} -k ${{ inputs.reliza_api_key }} -u ${{ inputs.reliza_api_url }}"  > pr_cmd 
+        if [ ! -z ${{inputs.reliza_project_id}} ]
+        then
+          echo " --project ${{inputs.reliza_project_id}} " >> pr_cmd
+        fi
+        echo "--commits $(gh pr view ${{ github.event.number }} --json commits | jq '.commits | map(.oid) | join(",")')" >> pr_cmd 
+        echo "--number ${{ github.event.number }} " >> pr_cmd
+        echo "--endpoint ${{ github.event.pull_request.html_url }} " >> pr_cmd
+        echo "--branch ${{ github.head_ref }} " >> pr_cmd
+        echo "--targetBranch ${{ github.base_ref }} " >> pr_cmd
+        echo "--state ${{ github.event.pull_request.state }} " >> pr_cmd
+        echo "--title ${{ github.event.pull_request.title }} " >> pr_cmd
+        if ${{ github.event.pull_request.closed_at != '' }} ; then
+          echo "--closedDate ${{ github.event.pull_request.closed_at }} " >> pr_cmd
+        fi
+        echo "--createdDate ${{ github.event.pull_request.created_at }} " >> pr_cmd
+        if ${{ github.event.pull_request.merged_at != ''}} ; then
+          echo "--mergedDate ${{ github.event.pull_request.merged_at }} " >> pr_cmd
+        fi
+        
+        echo reliza-cli prdata $(cat pr_cmd) > pr_cmd_exec
+        eval $(cat pr_cmd_exec)
