@@ -1,4 +1,4 @@
-# reliza-docker-action
+# reliza-pr-action
 
 ## About
 
