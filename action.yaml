@@ -43,7 +43,7 @@ runs:
       run: |
         cd ${{ inputs.path }}
         dobuild=false
-        echo -n "-i ${{ inputs.reliza_api_id }} -k ${{ inputs.reliza_api_key }} -u ${{ inputs.reliza_api_url }} -b ${{ github.head_ref }} --status pending"  > get_latest_release_cmd
+        echo -n "-i ${{ inputs.reliza_api_id }} -k ${{ inputs.reliza_api_key }} -u ${{ inputs.reliza_api_url }} -b ${{ github.head_ref }} --status pending "  > get_latest_release_cmd
         if [ ! -z ${{inputs.reliza_project_id}} ]
         then
           echo " --project ${{inputs.reliza_project_id}} " >> get_latest_release_cmd
@@ -80,12 +80,12 @@ runs:
       name: Submit PR Data
       shell: bash
       run: |
-        echo -n "-i ${{ inputs.reliza_api_id }} -k ${{ inputs.reliza_api_key }} -u ${{ inputs.reliza_api_url }}"  > pr_cmd 
+        echo -n "-i ${{ inputs.reliza_api_id }} -k ${{ inputs.reliza_api_key }} -u ${{ inputs.reliza_api_url }} " > pr_cmd 
         if [ ! -z ${{inputs.reliza_project_id}} ]
         then
           echo " --project ${{inputs.reliza_project_id}} " >> pr_cmd
         fi
-        echo "--commits $(gh pr view ${{ github.event.number }} --json commits | jq '.commits | map(.oid) | join(",")')" >> pr_cmd 
+        echo "--commits $(gh pr view ${{ github.event.number }} --json commits | jq '.commits | map(.oid) | join(",")') " >> pr_cmd 
         echo "--number ${{ github.event.number }} " >> pr_cmd
         echo "--endpoint ${{ github.event.pull_request.html_url }} " >> pr_cmd
         echo "--branch ${{ github.head_ref }} " >> pr_cmd
