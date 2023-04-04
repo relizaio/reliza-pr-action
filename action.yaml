@@ -91,7 +91,7 @@ runs:
         echo "--branch ${{ github.head_ref }} " >> pr_cmd
         echo "--targetBranch ${{ github.base_ref }} " >> pr_cmd
         echo "--state ${{ github.event.pull_request.state }} " >> pr_cmd
-        echo "--title ${{ github.event.pull_request.title }} " >> pr_cmd
+        echo "--title \"${{ github.event.pull_request.title }}\" " >> pr_cmd
         if ${{ github.event.pull_request.closed_at != '' }} ; then
           echo "--closedDate ${{ github.event.pull_request.closed_at }} " >> pr_cmd
         fi
