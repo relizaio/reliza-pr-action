@@ -26,7 +26,7 @@ runs:
   steps:
     - id: setup-reliza-cli
       name: setup-reliza-cli
-      uses: relizaio/setup-reliza-cli@1.0
+      uses: relizaio/setup-reliza-cli@2.0
       with: 
         version: 2023.09.3
     - id: reliza-build-start 
@@ -34,7 +34,7 @@ runs:
       run: echo "reliza_build_start=$(date -Iseconds)" >> $GITHUB_OUTPUT
       shell: bash
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
     - name: Extract Last Release Commit And Prepare List Of Commits
